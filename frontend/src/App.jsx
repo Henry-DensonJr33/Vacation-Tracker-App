@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useState } from 'react';
 import './App.css';
 
 function App() {
@@ -6,6 +6,8 @@ function App() {
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [showRequestForm, setShowRequestForm] = useState(false);
 
   function handleSubmit(event) {
     event.preventDefault();
@@ -15,9 +17,85 @@ function App() {
       return;
     }
 
-    setMessage('Login information received successfully.');
+    setMessage('');
+    setIsLoggedIn(true);
   }
 
+  if (isLoggedIn) {
+    return (
+      <div className="app-container">
+        <div className="dashboard">
+          <div className="dashboard-header">
+            <div>
+              <h1>Employee Dashboard</h1>
+              <p>Welcome to the Vacation Tracker App.</p>
+            </div>
+            
+            <button
+              className="logout-button"
+              onClick={() => setIsLoggedIn(false)}
+            >
+              Log Out
+            </button>
+          </div>
+
+          <div className="dashboard-grid">
+            <div className="dashboard-card">
+              <h2>PTO Balance</h2>
+              <p className="dashboard-number">120 hours</p>
+            </div>
+
+            <div className="dashboard-card">
+              <h2>Upcoming Time Off</h2>
+              <p>No upcoming vacation scheduled.</p>
+            </div>
+          </div>
+
+          <button 
+            className="request-button"
+            onClick={() => setShowRequestForm(true)}
+          >
+            Request Time Off
+          </button>
+
+          {showRequestForm && (
+            <div className="request-form">
+              <h2>Request Time Off</h2>
+
+              <label htmlFor="startDate">Start Date</label>
+              <input id="startDate" type="date" />
+
+              <label htmlFor="endDate">End Date</label>
+              <input id="endDate" type="date" />
+
+              <label htmlFor="reason">Reason</label>
+              <textarea
+                id="reason"
+                placeholder="Enter a reason for your request"
+              />
+
+              <div className="request-form-buttons">
+                <button onClick={() => setShowRequestForm(false)}>
+                  Cancel
+                </button>
+
+                <button>
+                  Submit Request
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="request-section">
+            <h2>My Vacation Requests</h2>
+
+            <p>No vacation requests submitted yet.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+ 
   return (
     <div className="app-container">
       <div className="login-card">
