@@ -184,3 +184,82 @@ button:hover {
 .request-form-buttons button {
   flex: 1;
 }
+
+.vacation-request {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid #dddddd;
+  border-radius: 10px;
+}
+
+.vacation-request p {
+  margin: 6px 0;
+}
+
+.dashboard-header-buttons {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.manager-view-button,
+.logout-button {
+  width: auto;
+  padding: 10px 18px;
+}
+
+.manager-action-buttons {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.manager-action-buttons button {
+  width: auto;
+  padding: 10px 18px;
+}
+
+.request-message {
+  margin-top: 16px;
+  font-weight: bold;
+}
+
+@media (max-width: 700px) {
+  .dashboard {
+    padding: 20px;
+  }
+
+  .dashboard-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .dashboard-header-buttons {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .dashboard-header-buttons button {
+    width: 100%;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .manager-action-buttons {
+    flex-direction: column;
+  }
+
+  .manager-action-buttons button {
+    width: 100%;
+  }
+
+  .request-form-buttons {
+    flex-direction: column;
+  }
+
+  .request-form-buttons button {
+    width: 100%;
+  }
+}
