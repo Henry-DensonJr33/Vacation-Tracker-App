@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import './App.css';
 
 function App() {
@@ -15,6 +15,19 @@ function App() {
   const [reason, setReason] = useState('');
   const [requestMessage, setRequestMessage] = useState('');
   const [requests, setRequests] = useState([]);
+
+  const [backendMessage, setBackendMessage] = useState('');
+
+  useEffect(() => {
+  fetch('/api/test')
+    .then((response) => response.json())
+    .then((data) => {
+      setBackendMessage(data.message);
+    })
+    .catch((error) => {
+      console.error('Error connecting to backend:', error);
+    });
+}, []);
 
   function handleSubmit(event) {
     event.preventDefault();
@@ -90,6 +103,12 @@ function App() {
                   ? 'Review and manage employee vacation requests.'
                   : 'Welcome to the Vacation Tracker App.'}
               </p>
+
+                {backendMessage && (
+                <p>
+                  Backend Status: {backendMessage}
+                </p>
+                )}
             </div>
 
             <div className="dashboard-header-buttons">
