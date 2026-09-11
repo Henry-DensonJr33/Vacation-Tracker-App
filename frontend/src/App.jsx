@@ -29,6 +29,17 @@ function App() {
     });
 }, []);
 
+  useEffect(() => {
+  fetch('/api/requests')
+    .then((response) => response.json())
+    .then((data) => {
+      setRequests(data);
+    })
+    .catch((error) => {
+      console.error('Error loading vacation requests:', error);
+    });
+}, []);
+
   function handleSubmit(event) {
     event.preventDefault();
 
@@ -41,7 +52,7 @@ function App() {
     setIsLoggedIn(true);
   }
 
-  function handleVacationRequest() {
+  async function handleVacationRequest() {
     if (!startDate || !endDate || !reason) {
       setRequestMessage('Please complete all request fields.');
       return;
@@ -54,14 +65,20 @@ function App() {
       return;
     }
 
-    const newRequest = {
-      id: Date.now(),
-      startDate,
-      endDate,
-      reason,
-      status: 'Pending',
-    };
-
+    const response = await fetch('/api/requests', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        startDate,
+        endDate,
+        reason,
+      }),
+    });
+    
+    const newRequest = await response.json();
+    
     setRequests([...requests, newRequest]);
 
     setStartDate('');
