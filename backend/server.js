@@ -1,9 +1,28 @@
 const express = require('express');
+require('dotenv').config();
+const { Pool } = require('pg');
 
 const app = express();
 const PORT = 5000;
 
+const pool = new Pool({
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASSWORD,
+  port: process.env.DB_PORT,
+});
+
 app.use(express.json());
+
+pool
+  .query('SELECT NOW()')
+  .then((result) => {
+    console.log('PostgreSQL connected:', result.rows[0]);
+  })
+  .catch((error) => {
+    console.error('PostgreSQL connection error:', error);
+  });
 
 let requests = [];
 
@@ -13,11 +32,31 @@ app.get('/api/test', (req, res) => {
   });
 });
 
-app.get('/api/requests', (req, res) => {
-  res.json(requests);
+app.get('/api/requests', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM requests ORDER BY id ASC'
+    );
+
+    const requests = result.rows.map((request) => ({
+      id: request.id,
+      startDate: request.start_date.toISOString().split('T')[0],
+      endDate: request.end_date.toISOString().split('T')[0],
+      reason: request.reason,
+      status: request.status,
+    }));
+
+    res.json(requests);
+  } catch (error) {
+    console.error('Error loading vacation requests:', error);
+
+    res.status(500).json({
+      message: 'Unable to load vacation requests.',
+    });
+  }
 });
 
-app.post('/api/requests', (req, res) => {
+app.post('/api/requests', async (req, res) => {
   const { startDate, endDate, reason } = req.body;
 
   if (!startDate || !endDate || !reason) {
@@ -32,17 +71,32 @@ app.post('/api/requests', (req, res) => {
     });
   }
 
-  const newRequest = {
-    id: Date.now(),
-    startDate,
-    endDate,
-    reason,
-    status: 'Pending',
-  };
+  try {
+    const result = await pool.query(
+      `
+        INSERT INTO requests (start_date, end_date, reason)
+        VALUES ($1, $2, $3)
+        RETURNING *
+      `,
+      [startDate, endDate, reason]
+    );
 
-  requests.push(newRequest);
+    const newRequest = result.rows[0];
 
-  res.status(201).json(newRequest);
+    res.status(201).json({
+      id: newRequest.id,
+      startDate: newRequest.start_date,
+      endDate: newRequest.end_date,
+      reason: newRequest.reason,
+      status: newRequest.status,
+    });
+  } catch (error) {
+    console.error('Error creating vacation request:', error);
+
+    res.status(500).json({
+      message: 'Unable to create vacation request.',
+    });
+  }
 });
 
 app.patch('/api/requests/:id', (req, res) => {
