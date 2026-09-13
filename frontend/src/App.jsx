@@ -88,12 +88,24 @@ function App() {
     setShowRequestForm(false);
   }
 
-  function updateRequestStatus(id, newStatus) {
-    setRequests(
-      requests.map((request) =>
-        request.id === id
-          ? { ...request, status: newStatus }
-          : request
+  async function updateRequestStatus(id, newStatus) {
+  const response = await fetch(`/api/requests/${id}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      status: newStatus,
+    }),
+  });
+
+  const updatedRequest = await response.json();
+
+  setRequests(
+    requests.map((request) =>
+      request.id === updatedRequest.id
+        ? updatedRequest
+        : request
       )
     );
   }
