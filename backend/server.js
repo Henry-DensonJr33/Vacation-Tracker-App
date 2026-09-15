@@ -24,7 +24,6 @@ pool
     console.error('PostgreSQL connection error:', error);
   });
 
-let requests = [];
 
 app.get('/api/test', (req, res) => {
   res.json({
@@ -99,19 +98,9 @@ app.post('/api/requests', async (req, res) => {
   }
 });
 
-app.patch('/api/requests/:id', (req, res) => {
+app.patch('/api/requests/:id', async (req, res) => {
   const requestId = Number(req.params.id);
   const { status } = req.body;
-
-  const request = requests.find(
-    (request) => request.id === requestId
-  );
-
-  if (!request) {
-    return res.status(404).json({
-      message: 'Vacation request not found.',
-    });
-  }
 
   if (!['Approved', 'Denied'].includes(status)) {
     return res.status(400).json({
@@ -119,9 +108,43 @@ app.patch('/api/requests/:id', (req, res) => {
     });
   }
 
-  request.status = status;
+  try {
+    const result = await pool.query(
+      `
+        UPDATE requests
+        SET status = $1
+        WHERE id = $2
+        RETURNING *
+      `,
+      [status, requestId]
+    );
 
-  res.json(request);
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        message: 'Vacation request not found.',
+      });
+    }
+
+    const updatedRequest = result.rows[0];
+
+    res.json({
+      id: updatedRequest.id,
+      startDate: updatedRequest.start_date
+        .toISOString()
+        .split('T')[0],
+      endDate: updatedRequest.end_date
+        .toISOString()
+        .split('T')[0],
+      reason: updatedRequest.reason,
+      status: updatedRequest.status,
+    });
+  } catch (error) {
+    console.error('Error updating vacation request:', error);
+
+    res.status(500).json({
+      message: 'Unable to update vacation request.',
+    });
+  }
 });
 
 app.listen(PORT, () => {
