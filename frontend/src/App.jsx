@@ -5,10 +5,10 @@ function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
+  const [user, setUser] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showRequestForm, setShowRequestForm] = useState(false);
-  const [isManagerView, setIsManagerView] = useState(false);
 
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -40,17 +40,41 @@ function App() {
     });
 }, []);
 
-  function handleSubmit(event) {
-    event.preventDefault();
+  async function handleSubmit(event) {
+  event.preventDefault();
 
-    if (!email || !password) {
-      setMessage('Please enter both your email and password.');
+  if (!email || !password) {
+    setMessage('Please enter both your email and password.');
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email,
+        password,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      setMessage(data.message);
       return;
     }
 
-    setMessage('');
+    setUser(data);
     setIsLoggedIn(true);
+    setMessage('');
+  } catch (error) {
+    console.error('Login error:', error);
+    setMessage('Unable to connect to the server.');
   }
+}
 
   async function handleVacationRequest() {
     if (!startDate || !endDate || !reason) {
@@ -122,13 +146,13 @@ function App() {
           <div className="dashboard-header">
             <div>
               <h1>
-                {isManagerView
+                {user?.role ===  'Manager'
                   ? 'Manager Dashboard'
                   : 'Employee Dashboard'}
               </h1>
 
               <p>
-                {isManagerView
+                {user?.role === 'Manager'
                   ? 'Review and manage employee vacation requests.'
                   : 'Welcome to the Vacation Tracker App.'}
               </p>
@@ -141,20 +165,12 @@ function App() {
             </div>
 
             <div className="dashboard-header-buttons">
-              <button
-                className="manager-view-button"
-                onClick={() => setIsManagerView(!isManagerView)}
-              >
-                {isManagerView
-                  ? 'Employee View'
-                  : 'Manager View'}
-              </button>
 
               <button
                 className="logout-button"
                 onClick={() => {
                   setIsLoggedIn(false);
-                  setIsManagerView(false);
+                  setUser(Null);
                 }}
               >
                 Log Out
@@ -162,7 +178,7 @@ function App() {
             </div>
           </div>
 
-          {isManagerView ? (
+          {user?.role === 'Manager' ? (
             <div className="manager-section">
               <h2>Employee Vacation Requests</h2>
 
