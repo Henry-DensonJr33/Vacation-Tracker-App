@@ -2,6 +2,8 @@ const express = require('express');
 require('dotenv').config();
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const cookieParser = require('cookie-parser');
 
 const app = express();
 const PORT = 5000;
@@ -15,6 +17,64 @@ const pool = new Pool({
 });
 
 app.use(express.json());
+app.use(cookieParser());
+
+function authenticateToken(req, res, next) {
+  const token = req.cookies.auth_token;
+
+  if (!token) {
+    return res.status(401).json({
+      message: 'Authentication required.',
+    });
+  }
+
+  try {
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET,
+      { algorithms: ['HS256'] }
+    );
+
+    req.user = {
+      id: decoded.userId,
+    };
+
+    next();
+  } catch (error) {
+    return res.status(401).json({
+      message: 'Invalid or expired authentication token.',
+    });
+  }
+}
+
+async function requireManager(req, res, next) {
+  try {
+    const result = await pool.query(
+      'SELECT role FROM users WHERE id = $1',
+      [req.user.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(401).json({
+        message: 'User account not found.',
+      });
+    }
+
+    if (result.rows[0].role !== 'Manager') {
+      return res.status(403).json({
+        message: 'Manager access required.',
+      });
+    }
+
+    next();
+  } catch (error) {
+    console.error('Authorization error:', error);
+
+    res.status(500).json({
+      message: 'Unable to verify permissions.',
+    });
+  }
+}
 
 pool
   .query('SELECT NOW()')
@@ -66,12 +126,26 @@ app.post('/api/login', async (req, res) => {
       });
     }
 
+    const token = jwt.sign(
+      { userId: user.id },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+    
+    res.cookie('auth_token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 1000,
+    });
+    
     res.json({
       id: Number(user.id),
       name: user.name,
       email: user.email,
       role: user.role,
     });
+
   } catch (error) {
     console.error('Login error:', error);
 
@@ -81,7 +155,7 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-app.get('/api/requests', async (req, res) => {
+app.get('/api/requests', authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(
       'SELECT * FROM requests ORDER BY id ASC'
@@ -105,7 +179,7 @@ app.get('/api/requests', async (req, res) => {
   }
 });
 
-app.post('/api/requests', async (req, res) => {
+app.post('/api/requests', authenticateToken, async (req, res) => {
   const { startDate, endDate, reason } = req.body;
 
   if (!startDate || !endDate || !reason) {
@@ -122,12 +196,10 @@ app.post('/api/requests', async (req, res) => {
 
   try {
     const result = await pool.query(
-      `
-        INSERT INTO requests (start_date, end_date, reason)
-        VALUES ($1, $2, $3)
-        RETURNING *
-      `,
-      [startDate, endDate, reason]
+      `INSERT INTO requests (start_date, end_date, reason, user_id)
+      VALUES ($1, $2, $3, $4)
+      RETURNING *`,
+      [startDate, endDate, reason, req.user.id]
     );
 
     const newRequest = result.rows[0];
@@ -148,7 +220,11 @@ app.post('/api/requests', async (req, res) => {
   }
 });
 
-app.patch('/api/requests/:id', async (req, res) => {
+app.patch(
+  '/api/requests/:id',
+  authenticateToken,
+  requireManager,
+  async (req, res) => {
   const requestId = Number(req.params.id);
   const { status } = req.body;
 
