@@ -30,15 +30,31 @@ function App() {
 }, []);
 
   useEffect(() => {
-  fetch('/api/requests')
-    .then((response) => response.json())
+  if (!isLoggedIn || !user) {
+    return;
+  }
+
+  fetch('/api/requests', {
+    credentials: 'same-origin',
+  })
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(`Unable to load requests (${response.status})`);
+      }
+
+      return response.json();
+    })
     .then((data) => {
+      if (!Array.isArray(data)) {
+        throw new Error('Unexpected vacation request response');
+      }
+
       setRequests(data);
     })
     .catch((error) => {
       console.error('Error loading vacation requests:', error);
     });
-}, []);
+}, [isLoggedIn, user]);
 
   async function handleSubmit(event) {
   event.preventDefault();
@@ -167,14 +183,30 @@ function App() {
             <div className="dashboard-header-buttons">
 
               <button
-                className="logout-button"
-                onClick={() => {
+              className="logout-button"
+              onClick={async () => {
+                try {
+                  const response = await fetch('/api/logout', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                  });
+                  
+                  if (!response.ok) {
+                    throw new Error('Logout failed.');
+                  }
+                  
                   setIsLoggedIn(false);
-                  setUser(Null);
+                  setUser(null);
+                  setRequests([]);
+                  setMessage('');
+                } catch (error) {
+                  console.error('Logout error:', error);
+                  alert('Unable to log out. Please try again.');
+                }
                 }}
-              >
-                Log Out
-              </button>
+                >
+                  Log Out
+                  </button>
             </div>
           </div>
 

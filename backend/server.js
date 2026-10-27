@@ -155,11 +155,49 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
+app.post('/api/logout', (req, res) => {
+  res.clearCookie('auth_token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+  });
+
+  res.json({
+    message: 'Logged out successfully.',
+  });
+});
+
 app.get('/api/requests', authenticateToken, async (req, res) => {
   try {
-    const result = await pool.query(
-      'SELECT * FROM requests ORDER BY id ASC'
+    const userResult = await pool.query(
+      'SELECT role FROM users WHERE id = $1',
+      [req.user.id]
     );
+    
+    if (userResult.rows.length === 0) {
+      return res.status(401).json({
+        message: 'User account not found.',
+      });
+    }
+    
+    const role = userResult.rows[0].role;
+    
+    let result;
+    
+    if (role === 'Manager') {
+      result = await pool.query(
+        'SELECT * FROM requests ORDER BY id'
+      );
+    } else if (role === 'Employee') {
+      result = await pool.query(
+        'SELECT * FROM requests WHERE user_id = $1 ORDER BY id',
+        [req.user.id]
+      );
+    } else {
+      return res.status(403).json({
+        message: 'Invalid account role.',
+      });
+    }
 
     const requests = result.rows.map((request) => ({
       id: request.id,
