@@ -19,6 +19,28 @@ const pool = new Pool({
 app.use(express.json());
 app.use(cookieParser());
 
+function verifyRequestOrigin(req, res, next) {
+  const safeMethods = ['GET', 'HEAD', 'OPTIONS'];
+
+  if (safeMethods.includes(req.method)) {
+    return next();
+  }
+
+  const origin = req.get('Origin');
+  const allowedOrigin =
+    process.env.APP_ORIGIN || 'http://localhost:5173';
+
+  if (origin !== allowedOrigin) {
+    return res.status(403).json({
+      message: 'Request origin not allowed.',
+    });
+  }
+
+  next();
+}
+
+app.use('/api', verifyRequestOrigin);
+
 function authenticateToken(req, res, next) {
   const token = req.cookies.auth_token;
 
@@ -219,13 +241,39 @@ app.get('/api/requests', authenticateToken, async (req, res) => {
 
 app.post('/api/requests', authenticateToken, async (req, res) => {
   const { startDate, endDate, reason } = req.body;
-
-  if (!startDate || !endDate || !reason) {
+  
+  if (
+    typeof startDate !== 'string' ||
+    typeof endDate !== 'string' ||
+    typeof reason !== 'string' ||
+    !startDate ||
+    !endDate ||
+    !reason.trim()
+  ) {
     return res.status(400).json({
       message: 'Please complete all request fields.',
     });
   }
-
+  
+  const isValidDate = (value) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return false;
+    }
+    
+    const date = new Date(`${value}T00:00:00Z`);
+    
+    return (
+      !Number.isNaN(date.getTime()) &&
+      date.toISOString().slice(0, 10) === value
+    );
+  };
+  
+  if (!isValidDate(startDate) || !isValidDate(endDate)) {
+    return res.status(400).json({
+      message: 'Please enter valid start and end dates.',
+    });
+  }
+  
   if (endDate < startDate) {
     return res.status(400).json({
       message: 'End date cannot be earlier than the start date.',
@@ -243,9 +291,9 @@ app.post('/api/requests', authenticateToken, async (req, res) => {
     const newRequest = result.rows[0];
 
     res.status(201).json({
-      id: newRequest.id,
-      startDate: newRequest.start_date,
-      endDate: newRequest.end_date,
+      id: Number(newRequest.id),
+      startDate: newRequest.start_date.toISOString().slice(0, 10),
+      endDate: newRequest.end_date.toISOString().slice(0, 10),
       reason: newRequest.reason,
       status: newRequest.status,
     });
