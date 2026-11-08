@@ -16,19 +16,6 @@ function App() {
   const [requestMessage, setRequestMessage] = useState('');
   const [requests, setRequests] = useState([]);
 
-  const [backendMessage, setBackendMessage] = useState('');
-
-  useEffect(() => {
-  fetch('/api/test')
-    .then((response) => response.json())
-    .then((data) => {
-      setBackendMessage(data.message);
-    })
-    .catch((error) => {
-      console.error('Error connecting to backend:', error);
-    });
-}, []);
-
   useEffect(() => {
   if (!isLoggedIn || !user) {
     return;
@@ -93,62 +80,95 @@ function App() {
 }
 
   async function handleVacationRequest() {
-    if (!startDate || !endDate || !reason) {
-      setRequestMessage('Please complete all request fields.');
-      return;
-    }
+  if (!startDate || !endDate || !reason.trim()) {
+    setRequestMessage('Please complete all request fields.');
+    return;
+  }
 
-    if (endDate < startDate) {
-      setRequestMessage(
-        'End date cannot be earlier than the start date.'
-      );
-      return;
-    }
+  if (endDate < startDate) {
+    setRequestMessage(
+      'End date cannot be earlier than the start date.'
+    );
+    return;
+  }
 
+  try {
     const response = await fetch('/api/requests', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
+      credentials: 'same-origin',
       body: JSON.stringify({
         startDate,
         endDate,
         reason,
       }),
     });
-    
-    const newRequest = await response.json();
-    
-    setRequests([...requests, newRequest]);
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      setRequestMessage(
+        data.message || 'Unable to submit vacation request.'
+      );
+      return;
+    }
+
+    setRequests((previousRequests) => [
+      ...previousRequests,
+      data,
+    ]);
 
     setStartDate('');
     setEndDate('');
     setReason('');
     setRequestMessage('');
     setShowRequestForm(false);
-  }
+  } catch (error) {
+    console.error('Vacation request error:', error);
 
-  async function updateRequestStatus(id, newStatus) {
-  const response = await fetch(`/api/requests/${id}`, {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      status: newStatus,
-    }),
-  });
-
-  const updatedRequest = await response.json();
-
-  setRequests(
-    requests.map((request) =>
-      request.id === updatedRequest.id
-        ? updatedRequest
-        : request
-      )
+    setRequestMessage(
+      'Unable to connect to the server. Please try again.'
     );
   }
+}
+
+  async function updateRequestStatus(id, newStatus) {
+  try {
+    const response = await fetch(`/api/requests/${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        status: newStatus,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      alert(data.message || 'Unable to update vacation request.');
+      return;
+    }
+
+    setRequests((previousRequests) =>
+      previousRequests.map((request) =>
+        Number(request.id) === Number(data.id)
+          ? data
+          : request
+      )
+    );
+  } catch (error) {
+    console.error('Error updating vacation request:', error);
+
+    alert(
+      'Unable to connect to the server. Please try again.'
+    );
+  }
+}
 
   if (isLoggedIn) {
     const approvedRequest = requests.find(
@@ -172,12 +192,6 @@ function App() {
                   ? 'Review and manage employee vacation requests.'
                   : 'Welcome to the Vacation Tracker App.'}
               </p>
-
-                {backendMessage && (
-                <p>
-                  Backend Status: {backendMessage}
-                </p>
-                )}
             </div>
 
             <div className="dashboard-header-buttons">
@@ -272,11 +286,15 @@ function App() {
 
                 <div className="dashboard-card">
                   <h2>PTO Balance</h2>
-
+                  
                   <p className="dashboard-number">
                     120 Hours
-                  </p>
-                </div>
+                    </p>
+                    
+                    <p>
+                      Demo Balance — Not Calculated from Requests
+                      </p>
+                      </div>
 
                 <div className="dashboard-card">
                   <h2>Upcoming Time Off</h2>
